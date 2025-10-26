@@ -126,7 +126,7 @@ def extract_codes_with_brand(text, brand_name, similarity_threshold=0.2):
         trained_codes = []
 
     results = set()
-    # NER抽出結果も3文字以下は無視
+    # NER抽出結果（3文字以下は無視）
     for ent in doc.ents:
         if (
             ent.label_ == "PRODUCT_CODE"
@@ -135,7 +135,7 @@ def extract_codes_with_brand(text, brand_name, similarity_threshold=0.2):
         ):
             results.add(ent.text)
 
-    # 類似度判定時に3文字以下はスキップ
+    # 類似度チェック
     for match in re.findall(r"\b[A-Za-z0-9]+\b", text):
         if len(match) <= 3:
             continue
@@ -174,12 +174,18 @@ with tab1:
                     train_model_for_brand(
                         codes, brand_name.strip(), continue_training=(mode=="追加学習")
                     )
+    else:
+        st.info("📂 Excelをアップロードし、ブランド名を入力してください。")
 
 # ====== 品番抽出タブ ======
 with tab2:
     st.header("Excel から商品名列を読み込んで品番抽出")
-    uploaded_extract = st.file_uploader("📤 Excel ファイルをアップロード（列名『商品名』）", type="xlsx", key="extract")
-    # ===== 品番抽出 =====
+    uploaded_extract = st.file_uploader(
+        "📤 Excel ファイルをアップロード（列名『商品名』）",
+        type="xlsx",
+        key="extract"
+    )
+
     st.subheader("③ 品番抽出")
 
     # 既存モデル一覧を取得
@@ -190,12 +196,13 @@ with tab2:
         "抽出に使うブランド名を選択",
         st.session_state.brands if st.session_state.brands else ["モデルがまだありません"]
     )
+
     similarity_threshold = st.slider(
         "類似度閾値を設定（0に近いほどゆるく抽出）",
         0.0, 1.0, 0.2, 0.05
     )
 
-    if uploaded_extract and brand_name_extract.strip():
+    if uploaded_extract and brand_name and brand_name != "モデルがまだありません":
         try:
             df_extract = pd.read_excel(uploaded_extract)
         except Exception as e:
@@ -209,7 +216,7 @@ with tab2:
                     for text in df_extract["商品名"]:
                         codes = extract_codes_with_brand(
                             str(text),
-                            brand_name_extract.strip(),
+                            brand_name.strip(),
                             similarity_threshold
                         )
                         extracted_list.append(", ".join(codes))
@@ -225,6 +232,8 @@ with tab2:
                         file_name="抽出結果.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
+    else:
+        st.info("📂 Excelをアップロードし、ブランド名を選択してください。")
 
 # ====== モデル管理タブ ======
 if "brands" not in st.session_state:
@@ -233,7 +242,7 @@ if "brands" not in st.session_state:
 with tab3:
     st.header("ブランド別モデル管理")
     st.write("📦 存在するブランドモデル一覧:")
-    st.write(", ".join(st.session_state.brands))
+    st.write(", ".join(st.session_state.brands) if st.session_state.brands else "（まだありません）")
 
     brand_name_manage = st.text_input("管理対象ブランド名を入力", key="manage_brand")
     if brand_name_manage.strip():
